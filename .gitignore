@@ -1,0 +1,17 @@
+# Large data files — generated, not committed
+*.pmtiles
+*.osm.pbf
+*.zip
+
+# Coastline shapefiles (downloaded, ~1.2GB)
+coastline/
+
+# Park shapefiles (generated from PBF, ~80MB)
+parks/
+
+# OS / editor
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/

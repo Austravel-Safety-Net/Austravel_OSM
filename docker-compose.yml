@@ -1,0 +1,9 @@
+services:
+  tileserver:
+    image: ghcr.io/maplibre/martin:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/tiles
+    command: ["--font", "/tiles/fonts", "/tiles/australia.pmtiles"]
+    restart: unless-stopped

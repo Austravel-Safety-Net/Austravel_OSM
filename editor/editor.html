@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}Map Style Editor — GO{% endblock %}
+{% block main_classes %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<style>
+  /* Hide footer on this full-screen page */
+  footer { display: none !important; }
+  /* Compact range slider */
+  input[type="range"] { height: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="mapStyleEditor()" x-init="initMap()" class="flex" style="height: calc(100vh - 4rem);">
+
+  {# ─── LEFT SIDEBAR ─── #}
+  <div class="w-96 flex-none border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+
+    {# Toolbar #}
+    <div class="flex-none border-b border-gray-200 p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <input type="text" x-model="searchQuery" placeholder="Search layers..."
+               class="flex-1 rounded border-gray-300 px-2 py-1 text-xs focus:ring-indigo-500 focus:border-indigo-500" />
+        <span x-show="dirty" class="text-amber-600 text-xs font-medium">Modified</span>
+      </div>
+      <div class="flex gap-2">
+        <button @click="exportStyle()"
+                class="flex-1 bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded hover:bg-indigo-700">
+          Export JSON
+        </button>
+        <button @click="resetStyle()"
+                class="flex-1 bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded hover:bg-gray-200 border border-gray-300">
+          Reset
+        </button>
+      </div>
+    </div>
+
+    {# Layer groups #}
+    <div class="flex-1 overflow-y-auto">
+      <template x-for="group in groupOrder" :key="group">
+        <div x-show="filteredGroupLayers(group).length > 0">
+          {# Group header #}
+          <button @click="openGroups[group] = !openGroups[group]"
+                  class="w-full flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 sticky top-0 z-10">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full" :class="groupColors[group] || 'bg-gray-300'"></span>
+              <span x-text="group"></span>
+              <span class="text-gray-400 font-normal" x-text="'(' + filteredGroupLayers(group).length + ')'"></span>
+            </div>
+            <svg class="h-3.5 w-3.5 text-gray-400 transition-transform" :class="openGroups[group] && 'rotate-180'"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          {# Layer rows #}
+          <div x-show="openGroups[group]" x-transition>
+            <template x-for="layer in filteredGroupLayers(group)" :key="layer.id">
+              <div class="border-b border-gray-100">
+                {# Layer summary row #}
+                <div class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                     @click="expandedLayer = expandedLayer === layer.id ? null : layer.id">
+                  {# Visibility toggle #}
+                  <button @click.stop="toggleVisibility(layer.id)"
+                          class="text-gray-400 hover:text-gray-600 flex-none" :title="layer.visible ? 'Hide' : 'Show'">
+                    <svg x-show="layer.visible" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <svg x-show="!layer.visible" class="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18"/>
+                    </svg>
+                  </button>
+                  {# Color swatch #}
+                  <span class="w-4 h-4 rounded border border-gray-300 flex-none"
+                        :style="'background-color:' + (layer.primaryColor || '#888')"></span>
+                  {# Layer name #}
+                  <span class="font-mono text-xs text-gray-600 truncate flex-1" x-text="layer.id"
+                        :class="!layer.visible && 'line-through text-gray-400'"></span>
+                  {# Type badge #}
+                  <span class="text-[10px] text-gray-400 flex-none" x-text="layer.type"></span>
+                  {# Expand chevron #}
+                  <svg class="w-3 h-3 text-gray-400 flex-none transition-transform"
+                       :class="expandedLayer === layer.id && 'rotate-180'"
+                       fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </div>
+
+                {# Expanded property editor #}
+                <div x-show="expandedLayer === layer.id" x-transition class="px-4 py-2 bg-gray-50 space-y-2">
+                  <template x-for="prop in layer.props" :key="prop.name">
+                    <div class="flex items-center gap-2">
+                      <label class="text-[11px] text-gray-500 w-20 flex-none truncate" x-text="prop.label"></label>
+
+                      {# Color input #}
+                      <template x-if="prop.type === 'color'">
+                        <div class="flex items-center gap-1.5 flex-1">
+                          <input type="color" :value="prop.value"
+                                 @input="updateProp(layer.id, prop, $event.target.value)"
+                                 class="w-7 h-7 rounded border border-gray-300 cursor-pointer p-0" />
+                          <span class="font-mono text-[10px] text-gray-400" x-text="prop.value"></span>
+                          <span x-show="prop.isExpression" class="text-[9px] bg-amber-100 text-amber-700 px-1 rounded">expr</span>
+                        </div>
+                      </template>
+
+                      {# Range (opacity) input #}
+                      <template x-if="prop.type === 'range'">
+                        <div class="flex items-center gap-1.5 flex-1">
+                          <input type="range" :min="prop.min" :max="prop.max" :step="prop.step" :value="prop.value"
+                                 @input="updateProp(layer.id, prop, parseFloat($event.target.value))"
+                                 class="flex-1 accent-indigo-600" />
+                          <span class="font-mono text-[10px] text-gray-400 w-8 text-right" x-text="Number(prop.value).toFixed(2)"></span>
+                          <span x-show="prop.isExpression" class="text-[9px] bg-amber-100 text-amber-700 px-1 rounded">expr</span>
+                        </div>
+                      </template>
+
+                      {# Number input (width, zoom) #}
+                      <template x-if="prop.type === 'number'">
+                        <div class="flex items-center gap-1.5 flex-1">
+                          <input type="number" :min="prop.min" :max="prop.max" :step="prop.step" :value="prop.value"
+                                 @change="updateProp(layer.id, prop, parseFloat($event.target.value))"
+                                 class="w-16 rounded border-gray-300 px-1.5 py-0.5 text-xs" />
+                          <span x-show="prop.isExpression" class="text-[9px] bg-amber-100 text-amber-700 px-1 rounded">expr</span>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  {# ─── MAP ─── #}
+  <div class="flex-1 relative">
+    <div id="style-map" class="w-full h-full"></div>
+    {# Zoom indicator #}
+    <div class="absolute bottom-6 left-3 bg-white/90 backdrop-blur rounded px-2 py-1 text-xs font-mono text-gray-600 shadow"
+         x-text="'z' + currentZoom.toFixed(1)"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+// ─── Helper functions ───
+
+function categorizeLayer(id) {
+    if (id === 'background') return 'Background';
+    if (id.startsWith('landcover-')) return 'Landcover';
+    if (id.startsWith('landuse-')) return 'Land Use';
+    if (id.includes('park') && id.includes('label')) return 'Labels — Parks';
+    if (id.startsWith('park')) return 'Parks';
+    if (id === 'ocean' || id === 'water' || id.startsWith('water')) return 'Water';
+    if (id.startsWith('aeroway') || id.startsWith('aerodrome')) return 'Aeroways';
+    if (id.startsWith('road-rail')) return 'Rail';
+    if (id.startsWith('road-label')) return 'Labels — Roads';
+    if (id.startsWith('road-')) return 'Roads';
+    if (id.startsWith('boundary-')) return 'Boundaries';
+    if (id === 'building') return 'Buildings';
+    if (id === 'water-name' || id === 'waterway-name') return 'Labels — Water';
+    if (id.startsWith('place-') || id === 'poi-label') return 'Labels — Places';
+    return 'Other';
+}
+
+function resolveValue(val) {
+    if (val == null) return null;
+    if (typeof val === 'string' || typeof val === 'number') return val;
+    if (Array.isArray(val)) {
+        if (val[0] === 'interpolate' && val.length >= 5) return val[4];
+        if (val[0] === 'match') return val[val.length - 1];
+        if (val[0] === 'case' || val[0] === 'coalesce') return val[val.length - 1];
+        if (val[0] === 'step' && val.length >= 3) return val[1];
+    }
+    return null;
+}
+
+function isExpression(val) {
+    return Array.isArray(val);
+}
+
+function toHex(color) {
+    if (!color || typeof color !== 'string') return '#888888';
+    if (color.startsWith('#')) {
+        if (color.length === 4) return '#' + color[1]+color[1] + color[2]+color[2] + color[3]+color[3];
+        return color.slice(0, 7);
+    }
+    if (color.startsWith('rgb')) {
+        const m = color.match(/[\d.]+/g);
+        if (m && m.length >= 3) {
+            return '#' + parseInt(m[0]).toString(16).padStart(2,'0')
+                       + parseInt(m[1]).toString(16).padStart(2,'0')
+                       + parseInt(m[2]).toString(16).padStart(2,'0');
+        }
+    }
+    return '#888888';
+}
+
+function extractProps(layer) {
+    const props = [];
+    const paint = layer.paint || {};
+    const layout = layer.layout || {};
+    const t = layer.type;
+
+    function addProp(name, label, type, raw, opts) {
+        const resolved = resolveValue(raw);
+        if (resolved == null && type === 'color') return;
+        let value = resolved;
+        if (type === 'color') value = toHex(String(resolved));
+        if (type === 'range' && value == null) value = opts.fallback || 1;
+        if (type === 'number' && value == null) value = opts.fallback || 1;
+        props.push({
+            name, label, type, value,
+            isExpression: isExpression(raw),
+            isPaint: opts.isPaint !== false,
+            min: opts.min ?? 0, max: opts.max ?? 24, step: opts.step ?? 1,
+        });
+    }
+
+    if (t === 'background') {
+        addProp('background-color', 'Color', 'color', paint['background-color'], {});
+    }
+    if (t === 'fill') {
+        addProp('fill-color', 'Fill', 'color', paint['fill-color'], {});
+        addProp('fill-opacity', 'Opacity', 'range', paint['fill-opacity'], { min:0, max:1, step:0.01, fallback:1 });
+    }
+    if (t === 'line') {
+        addProp('line-color', 'Color', 'color', paint['line-color'], {});
+        addProp('line-width', 'Width', 'number', paint['line-width'], { min:0, max:20, step:0.5, fallback:1 });
+        addProp('line-opacity', 'Opacity', 'range', paint['line-opacity'], { min:0, max:1, step:0.01, fallback:1 });
+    }
+    if (t === 'symbol') {
+        addProp('text-color', 'Text', 'color', paint['text-color'], {});
+        addProp('text-halo-color', 'Halo', 'color', paint['text-halo-color'], {});
+        addProp('text-halo-width', 'Halo W', 'number', paint['text-halo-width'], { min:0, max:5, step:0.1, fallback:1 });
+    }
+    // Zoom range
+    props.push({
+        name: 'minzoom', label: 'Min Zoom', type: 'number', value: layer.minzoom ?? 0,
+        isExpression: false, isPaint: false, min: 0, max: 24, step: 1,
+    });
+    props.push({
+        name: 'maxzoom', label: 'Max Zoom', type: 'number', value: layer.maxzoom ?? 24,
+        isExpression: false, isPaint: false, min: 0, max: 24, step: 1,
+    });
+    return props;
+}
+
+function getPrimaryColor(layer) {
+    const paint = layer.paint || {};
+    for (const key of ['fill-color', 'line-color', 'background-color', 'text-color']) {
+        const raw = paint[key];
+        if (raw) {
+            const val = resolveValue(raw);
+            if (val && typeof val === 'string') return toHex(val);
+        }
+    }
+    return '#888888';
+}
+
+// ─── Alpine component ───
+
+function mapStyleEditor() {
+    return {
+        map: null,
+        originalStyle: null,
+        layers: [],
+        groups: {},
+        openGroups: {},
+        expandedLayer: null,
+        searchQuery: '',
+        dirty: false,
+        currentZoom: 4,
+
+        groupOrder: [
+            'Background', 'Landcover', 'Land Use', 'Parks', 'Water',
+            'Roads', 'Rail', 'Boundaries', 'Buildings', 'Aeroways',
+            'Labels — Roads', 'Labels — Water', 'Labels — Parks', 'Labels — Places', 'Other'
+        ],
+        groupColors: {
+            'Background': 'bg-gray-300',
+            'Landcover': 'bg-green-300',
+            'Land Use': 'bg-amber-300',
+            'Parks': 'bg-emerald-400',
+            'Water': 'bg-blue-400',
+            'Roads': 'bg-orange-300',
+            'Rail': 'bg-gray-400',
+            'Boundaries': 'bg-red-300',
+            'Buildings': 'bg-stone-300',
+            'Aeroways': 'bg-purple-300',
+            'Labels — Roads': 'bg-yellow-300',
+            'Labels — Water': 'bg-cyan-300',
+            'Labels — Parks': 'bg-lime-300',
+            'Labels — Places': 'bg-violet-300',
+            'Other': 'bg-gray-300',
+        },
+
+        initMap() {
+            this.$nextTick(() => {
+                this.map = new maplibregl.Map({
+                    container: 'style-map',
+                    style: '/static/mapstyle/style.json',
+                    center: [134, -25.5],
+                    zoom: 4,
+                    attributionControl: true,
+                });
+                this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
+                this.map.on('load', () => this.initLayers());
+                this.map.on('zoom', () => { this.currentZoom = this.map.getZoom(); });
+            });
+        },
+
+        initLayers() {
+            this.originalStyle = JSON.parse(JSON.stringify(this.map.getStyle()));
+            const style = this.map.getStyle();
+            this.layers = style.layers.map(layer => ({
+                id: layer.id,
+                type: layer.type,
+                group: categorizeLayer(layer.id),
+                visible: (layer.layout || {}).visibility !== 'none',
+                primaryColor: getPrimaryColor(layer),
+                props: extractProps(layer),
+            }));
+            // Build groups
+            this.groups = {};
+            this.layers.forEach(l => {
+                if (!this.groups[l.group]) this.groups[l.group] = [];
+                this.groups[l.group].push(l);
+            });
+            // Open all groups
+            this.groupOrder.forEach(g => { this.openGroups[g] = true; });
+        },
+
+        filteredGroupLayers(group) {
+            const layers = this.groups[group] || [];
+            if (!this.searchQuery) return layers;
+            const q = this.searchQuery.toLowerCase();
+            return layers.filter(l => l.id.toLowerCase().includes(q));
+        },
+
+        toggleVisibility(layerId) {
+            const layer = this.layers.find(l => l.id === layerId);
+            if (!layer) return;
+            layer.visible = !layer.visible;
+            this.map.setLayoutProperty(layerId, 'visibility', layer.visible ? 'visible' : 'none');
+            this.dirty = true;
+        },
+
+        updateProp(layerId, prop, value) {
+            prop.value = value;
+            // Update the primary color swatch
+            const layer = this.layers.find(l => l.id === layerId);
+
+            if (prop.name === 'minzoom' || prop.name === 'maxzoom') {
+                const minz = layer.props.find(p => p.name === 'minzoom');
+                const maxz = layer.props.find(p => p.name === 'maxzoom');
+                this.map.setLayerZoomRange(layerId, minz ? minz.value : 0, maxz ? maxz.value : 24);
+            } else if (prop.isPaint) {
+                this.map.setPaintProperty(layerId, prop.name, value);
+            } else {
+                this.map.setLayoutProperty(layerId, prop.name, value);
+            }
+
+            // Update swatch if color changed
+            if (prop.type === 'color' && layer) {
+                const colorProp = layer.props.find(p => p.type === 'color');
+                if (colorProp) layer.primaryColor = colorProp.value;
+            }
+            this.dirty = true;
+        },
+
+        exportStyle() {
+            const style = this.map.getStyle();
+            const blob = new Blob([JSON.stringify(style, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'style.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        },
+
+        resetStyle() {
+            if (!this.dirty || confirm('Discard all changes and reset to the original style?')) {
+                this.map.setStyle(JSON.parse(JSON.stringify(this.originalStyle)));
+                this.map.once('style.load', () => {
+                    this.initLayers();
+                    this.dirty = false;
+                    this.expandedLayer = null;
+                });
+            }
+        },
+    };
+}
+</script>
+{% endblock %}
