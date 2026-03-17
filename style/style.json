@@ -6,6 +6,11 @@
       "type": "vector",
       "url": "http://localhost:3000/australia",
       "maxzoom": 14
+    },
+    "ocean": {
+      "type": "vector",
+      "url": "http://localhost:3000/ocean",
+      "maxzoom": 10
     }
   },
   "glyphs": "http://localhost:3000/font/{fontstack}/{range}",
@@ -20,7 +25,7 @@
     {
       "id": "ocean",
       "type": "fill",
-      "source": "openmaptiles",
+      "source": "ocean",
       "source-layer": "ocean",
       "paint": {
         "fill-color": "#aad3df"
@@ -179,7 +184,7 @@
       "source": "openmaptiles",
       "source-layer": "park_major",
       "paint": {
-        "fill-color": ["match", ["get", "class"], "national_park", "#a8d8a0", "#b8e8b0"],
+        "fill-color": "#a8d8a0",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 2, 0.3, 6, 0.45, 10, 0.5]
       }
     },
@@ -190,7 +195,7 @@
       "source-layer": "park_major",
       "minzoom": 4,
       "paint": {
-        "line-color": ["match", ["get", "class"], "national_park", "#6aaa6a", "#8cc48c"],
+        "line-color": "#6aaa6a",
         "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 8, 1, 12, 1.5],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.3, 8, 0.7]
       }
@@ -201,7 +206,7 @@
       "source": "openmaptiles",
       "source-layer": "park",
       "paint": {
-        "fill-color": ["match", ["get", "class"], "national_park", "#a8d8a0", "#b8e8b0"],
+        "fill-color": "#a8d8a0",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 8, 0.55, 12, 0.5]
       }
     },
@@ -212,7 +217,7 @@
       "source-layer": "park",
       "minzoom": 5,
       "paint": {
-        "line-color": ["match", ["get", "class"], "national_park", "#6aaa6a", "#8cc48c"],
+        "line-color": "#6aaa6a",
         "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 8, 1, 12, 1.5],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.4, 8, 0.7]
       }
@@ -558,7 +563,7 @@
       "filter": ["in", "class", "primary", "secondary"],
       "minzoom": 10,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 16, 13],
         "symbol-placement": "line",
@@ -580,7 +585,7 @@
       "filter": ["==", "class", "tertiary"],
       "minzoom": 12,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 8, 16, 12],
         "symbol-placement": "line",
@@ -602,7 +607,7 @@
       "filter": ["in", "class", "minor", "track", "service", "path"],
       "minzoom": 13,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 13, 8, 16, 11],
         "symbol-placement": "line",
@@ -622,7 +627,7 @@
       "source": "openmaptiles",
       "source-layer": "water_name",
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 16, 14],
         "text-letter-spacing": 0.1
@@ -641,7 +646,7 @@
       "filter": ["has", "name:latin"],
       "minzoom": 10,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 16, 12],
         "symbol-placement": "line",
@@ -662,7 +667,7 @@
       "filter": ["has", "name:latin"],
       "minzoom": 4,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 4, 8, 8, 11, 14, 14],
         "text-max-width": 8,
@@ -680,10 +685,10 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "park",
-      "filter": ["all", ["has", "name:latin"], ["==", "class", "national_park"]],
+      "filter": ["has", "name:latin"],
       "minzoom": 5,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 5, 9, 8, 11, 14, 14],
         "text-max-width": 8,
@@ -697,32 +702,13 @@
       }
     },
     {
-      "id": "park-label",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "park",
-      "filter": ["all", ["has", "name:latin"], ["!=", "class", "national_park"]],
-      "minzoom": 8,
-      "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
-        "text-font": ["Open Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 14, 12],
-        "text-max-width": 8
-      },
-      "paint": {
-        "text-color": "#3a7a3a",
-        "text-halo-color": "rgba(255,255,255,0.7)",
-        "text-halo-width": 1
-      }
-    },
-    {
       "id": "aerodrome-label",
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "aerodrome_label",
       "minzoom": 10,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": 11,
         "text-max-width": 8,
@@ -742,7 +728,7 @@
       "source-layer": "poi",
       "minzoom": 13,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": 10,
         "text-max-width": 8,
@@ -763,7 +749,7 @@
       "filter": ["in", "class", "neighbourhood", "quarter", "isolated_dwelling"],
       "minzoom": 13,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": 10,
         "text-max-width": 8,
@@ -784,7 +770,7 @@
       "filter": ["in", "class", "village", "hamlet"],
       "minzoom": 9,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 14, 12],
         "text-max-width": 8
@@ -803,7 +789,7 @@
       "filter": ["==", "class", "suburb"],
       "minzoom": 10,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 13],
         "text-max-width": 8,
@@ -824,7 +810,7 @@
       "filter": ["==", "class", "town"],
       "minzoom": 6,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 12, 15],
         "text-max-width": 8
@@ -842,7 +828,7 @@
       "source-layer": "place",
       "filter": ["==", "class", "city"],
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 4, 12, 10, 20],
         "text-max-width": 8
@@ -861,7 +847,7 @@
       "filter": ["==", "class", "state"],
       "maxzoom": 8,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Bold"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 4, 9, 7, 12],
         "text-transform": "uppercase",
@@ -882,7 +868,7 @@
       "filter": ["==", "class", "country"],
       "maxzoom": 6,
       "layout": {
-        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-field": ["get", "name:latin"],
         "text-font": ["Open Sans Bold"],
         "text-size": 14,
         "text-transform": "uppercase",

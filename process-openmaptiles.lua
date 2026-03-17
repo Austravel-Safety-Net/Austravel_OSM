@@ -287,17 +287,34 @@ poiClassRanks   = { hospital=1, railway=2, bus=3, attraction=4, harbor=5, colleg
 waterClasses    = Set { "river", "riverbank", "stream", "canal", "drain", "ditch", "dock" }
 waterwayClasses = Set { "stream", "river", "canal", "drain", "ditch" }
 
+-- Helper: check if a protected_area is a land-based national park
+function is_land_national_park(name_lower, pt_lower)
+	if not pt_lower:find("national park") then return false end
+	-- Exclude marine, Aboriginal, Indigenous, aquatic
+	if name_lower:find("marine") or pt_lower:find("marine") then return false end
+	if name_lower:find("aboriginal") or pt_lower:find("aboriginal") then return false end
+	if name_lower:find("indigenous") or pt_lower:find("indigenous") then return false end
+	if name_lower:find("aquatic") or pt_lower:find("aquatic") then return false end
+	-- "National Park Zone" = marine zone, but "CCA Zone" = land
+	if pt_lower:find("zone") and not pt_lower:find("cca zone") then return false end
+	return true
+end
+
 -- Scan relations for use in ways
 
 function relation_scan_function()
 	if Find("type")=="boundary" and Find("boundary")=="administrative" then
 		Accept()
 	end
-	-- Accept national park, protected area and nature reserve relations (large parks are multipolygon relations)
+	-- Accept land-based national park relations only
 	if Find("type")=="multipolygon" or Find("type")=="boundary" then
 		local bdy = Find("boundary")
-		if bdy=="national_park" or bdy=="protected_area" or Find("leisure")=="nature_reserve" then
+		if bdy=="national_park" then
 			Accept()
+		elseif bdy=="protected_area" then
+			if is_land_national_park(Find("name"):lower(), Find("protection_title"):lower()) then
+				Accept()
+			end
 		end
 	end
 end
@@ -405,22 +422,15 @@ function way_function()
 			isBoundary = true
 			admin_level = math.min(admin_level, tonumber(FindInRelation("admin_level")) or 11)
 		end
-		-- Detect park/protected area relations
+		-- Detect land-based national park relations only
 		if rel_boundary=="national_park" then
 			rel_park_class = "national_park"
 			rel_park_name = FindInRelation("name") or ""
 		elseif rel_boundary=="protected_area" then
-			local pc = FindInRelation("protect_class") or ""
-			local pt = FindInRelation("protection_title") or ""
-			if pc=="2" or pt=="National Park" then
+			if is_land_national_park((FindInRelation("name") or ""):lower(), (FindInRelation("protection_title") or ""):lower()) then
 				rel_park_class = "national_park"
-			else
-				rel_park_class = "nature_reserve"
+				rel_park_name = FindInRelation("name") or ""
 			end
-			rel_park_name = FindInRelation("name") or ""
-		elseif FindInRelation("leisure")=="nature_reserve" and rel_park_class=="" then
-			rel_park_class = "nature_reserve"
-			rel_park_name = FindInRelation("name") or ""
 		end
 	end
 
@@ -712,17 +722,14 @@ function way_function()
 		end
 	end
 
-	-- Parks (from way tags)
-	local protect_class = Find("protect_class")
+	-- Parks (from way tags) — land-based national parks only
 	local park_class = ""
 	if boundary=="national_park" then
 		park_class = "national_park"
-	elseif boundary=="protected_area" and (protect_class=="2" or Find("protection_title")=="National Park") then
-		park_class = "national_park"
 	elseif boundary=="protected_area" then
-		park_class = "nature_reserve"
-	elseif leisure=="nature_reserve" then
-		park_class = "nature_reserve"
+		if is_land_national_park(Find("name"):lower(), Find("protection_title"):lower()) then
+			park_class = "national_park"
+		end
 	end
 	-- Parks from relation tags (for large parks stored as type=boundary relations)
 	if park_class=="" and rel_park_class~="" then

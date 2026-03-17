@@ -33,25 +33,33 @@ class RelationScanner(osmium.SimpleHandler):
         tags = dict(r.tags)
         rtype = tags.get("type", "")
         boundary = tags.get("boundary", "")
-        leisure = tags.get("leisure", "")
 
         if rtype not in ("boundary", "multipolygon"):
             return
 
+        # Only land-based national parks
         park_class = ""
+        pt = tags.get("protection_title", "")
+        pt_lower = pt.lower()
+        name_lower = tags.get("name", "").lower()
+
         if boundary == "national_park":
             park_class = "national_park"
         elif boundary == "protected_area":
-            pc = tags.get("protect_class", "")
-            pt = tags.get("protection_title", "")
-            if pc == "2" or pt == "National Park":
-                park_class = "national_park"
-            else:
-                park_class = "nature_reserve"
-        elif leisure == "nature_reserve":
-            park_class = "nature_reserve"
+            # Must have "national park" in protection_title
+            if "national park" not in pt_lower:
+                return
+            park_class = "national_park"
 
         if not park_class:
+            return
+
+        # Exclude marine, Aboriginal/Indigenous, aquatic, and marine park zones
+        for keyword in ("marine", "aboriginal", "indigenous", "aquatic"):
+            if keyword in name_lower or keyword in pt_lower:
+                return
+        # "National Park Zone" = marine zone (but "CCA Zone" = land)
+        if "zone" in pt_lower and "cca zone" not in pt_lower:
             return
 
         outers, inners = [], []

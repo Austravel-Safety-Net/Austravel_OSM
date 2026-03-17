@@ -1,0 +1,22 @@
+{
+	"layers": {
+		"ocean": { "minzoom": 0, "maxzoom": 10, "source": "/data/coastline/water_polygons.shp", "simplify_below": 8, "simplify_level": 0.001, "simplify_algorithm": "visvalingam" }
+	},
+	"settings": {
+		"minzoom": 0,
+		"maxzoom": 10,
+		"basezoom": 10,
+		"include_ids": false,
+		"combine_below": 10,
+		"name": "Global Ocean",
+		"version": "1.0",
+		"description": "Global ocean/coastline polygons",
+		"compress": "gzip",
+		"filemetadata": {
+			"tilejson": "2.0.0",
+			"scheme": "xyz",
+			"type": "baselayer",
+			"format": "pbf"
+		}
+	}
+}
